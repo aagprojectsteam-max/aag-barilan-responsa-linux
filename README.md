@@ -7,6 +7,7 @@ Community technical notes and helper tooling for running a user-supplied install
 - a version-locked 2-byte startup patcher for one verified `RESPONSA.exe` build;
 - Wine/XWayland configuration used by the accepted setup;
 - a touchscreen-to-`WM_VSCROLL` helper for the application's internal MFC content window;
+- an optional precise content-view drag/long-press filter (`src/dragblock-precise.c`);
 - launcher and desktop-entry examples;
 - a complete reproduction and troubleshooting handoff in [`HANDOFF.md`](HANDOFF.md).
 
@@ -91,12 +92,28 @@ The application did not expose modern smooth touch scrolling through Wine. The a
 
 True pixel-smooth kinetic scrolling was not achieved because the application's own MFC scrolling model is discrete.
 
+## Optional drag / long-press mitigation
+
+Mouse tracing identified the content view handling selection and long-press behavior as:
+
+```text
+Afx:00400000:82b:00060020:01900020:00000000
+```
+
+`src/dragblock-precise.c` subclasses only large visible windows of that exact class. It delays application-visible left-button down until release, replays a normal short click only when the gesture remains within the movement/time thresholds, and suppresses drag/long-hold sequences that would otherwise enter Responsa's text-selection or long-press path.
+
+This is **best-effort, not perfect**. It was accepted as the closest practical behavior reached, not as a complete elimination of every accidental selection or long-press edge case. See [`docs/accepted-state-2026-09-17.md`](docs/accepted-state-2026-09-17.md).
+
+For persistent local use, compile the DLL and use `scripts/inject-dragblock.sh` from the launcher so it waits for `RESPONSA.exe` and injects the filter for each fresh process.
+
 ## Non-goals / known rejected paths
 
 - Native Wine Wayland looked sharper but had pointer-coordinate and fullscreen problems in the tested environment.
 - `evdev` device grabbing plus `ydotool` was rejected because it interfered with touch and pointer position.
+- Full touchscreen ownership with `evdev.grab()` was rejected because it disabled touch for the rest of the desktop while active.
 - `SB_THUMBPOSITION` did not move the application's content.
 - overlay-based pixel dragging was visually unstable under the tested XWayland scaling chain.
+- popup-menu reset/gating and aggressive synthetic mouse-up cleanup were rejected because they could interfere with menu/mouse behavior.
 
 See `HANDOFF.md` for full details.
 
