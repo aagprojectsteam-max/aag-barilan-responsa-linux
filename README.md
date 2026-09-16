@@ -23,6 +23,12 @@ Community technical notes and helper tooling for running a user-supplied install
 
 The tested machine used GNOME scale `1.25`; XWayland exposed `3072x1920` for a physical `1920x1200` panel. DPI 192 was empirically the sharpest accepted setting on that environment.
 
+## Current accepted state
+
+The final production state keeps the proven Soda 11.0 / XWayland configuration. Main-window tap and the custom touch-scroll bridge work in the accepted setup. Tap activation inside native Win32 popup-menu windows (`#32768`) remains a known limitation; mouse activation is the accepted fallback.
+
+An isolated Wine touch/gesture experiment based on Wine MR11663 was source-verified and a separate build was started, but it was intentionally stopped before any runner was promoted to production. The accepted installation therefore does **not** depend on that experimental Wine build.
+
 ## Important legal note
 
 This repository does **not** contain the commercial application, installer, content/database files, or Microsoft runtime DLLs. You must provide your own legitimately obtained software/media. The patcher refuses to touch executables that do not match the exact verified SHA256.
@@ -62,7 +68,7 @@ scripts/install-touch-helper.sh
 install -Dm755 examples/barilan-responsa-launcher.sh "$HOME/.local/bin/barilan-responsa"
 ```
 
-8. Read [`HANDOFF.md`](HANDOFF.md) before reproducing the full setup on another machine. It documents the complete investigation, exact hashes/offsets, accepted baseline, rejected experiments, fullscreen behavior, DPI findings, and touch-input architecture.
+8. Read [`HANDOFF.md`](HANDOFF.md) and [`docs/accepted-state-2026-09-17.md`](docs/accepted-state-2026-09-17.md) before reproducing the full setup on another machine.
 
 ## Verified executable hashes
 
@@ -82,7 +88,7 @@ Do not apply the patch to another build without independently re-validating the 
 
 ## Touch scrolling
 
-The application did not expose modern smooth touch scrolling through Wine. The accepted helper:
+The application did not expose modern smooth touch scrolling through the accepted Wine 11.0 path. The accepted helper:
 
 1. reads XInput2 `TouchBegin` / `TouchUpdate` / `TouchEnd` events;
 2. does not grab the input device and does not move the mouse pointer;
@@ -102,9 +108,7 @@ Afx:00400000:82b:00060020:01900020:00000000
 
 `src/dragblock-precise.c` subclasses only large visible windows of that exact class. It delays application-visible left-button down until release, replays a normal short click only when the gesture remains within the movement/time thresholds, and suppresses drag/long-hold sequences that would otherwise enter Responsa's text-selection or long-press path.
 
-This is **best-effort, not perfect**. It was accepted as the closest practical behavior reached, not as a complete elimination of every accidental selection or long-press edge case. See [`docs/accepted-state-2026-09-17.md`](docs/accepted-state-2026-09-17.md).
-
-For persistent local use, compile the DLL and use `scripts/inject-dragblock.sh` from the launcher so it waits for `RESPONSA.exe` and injects the filter for each fresh process.
+This is **best-effort, not perfect**. It was accepted as the closest practical behavior reached, not as a complete elimination of every accidental selection or long-press edge case.
 
 ## Non-goals / known rejected paths
 
@@ -114,8 +118,10 @@ For persistent local use, compile the DLL and use `scripts/inject-dragblock.sh` 
 - `SB_THUMBPOSITION` did not move the application's content.
 - overlay-based pixel dragging was visually unstable under the tested XWayland scaling chain.
 - popup-menu reset/gating and aggressive synthetic mouse-up cleanup were rejected because they could interfere with menu/mouse behavior.
+- synthetic popup activation using Win32 mouse messages, XTest/xdotool, direct command dispatch, or keyboard activation was not reliable enough for production.
+- running a second XInput2 listener for popup experiments interfered with normal tap behavior and was rejected.
 
-See `HANDOFF.md` for full details.
+See `HANDOFF.md` and the accepted-state document for full details.
 
 ## License
 
