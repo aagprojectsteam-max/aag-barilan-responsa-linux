@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Responsa 25
+Exec=/home/USER/.local/bin/barilan-responsa
+Icon=E411_RESPONSA.0
+Terminal=false
+StartupNotify=true
+StartupWMClass=responsa.exe
+Categories=Office;
