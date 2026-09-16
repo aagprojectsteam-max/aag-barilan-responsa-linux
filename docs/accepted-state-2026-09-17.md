@@ -1,6 +1,6 @@
 # Accepted state — 2026-09-17
 
-This document records the locally accepted state after the touch/drag investigation. It is intentionally conservative: the result is not perfect, but it was the closest stable behavior reached and was explicitly chosen as the stopping point.
+This document records the final locally accepted production state after the Wine/touch investigation. The result is intentionally conservative: the working configuration is preserved, known limitations are documented, and rejected experiments are not part of production.
 
 ## Accepted runtime baseline
 
@@ -12,56 +12,57 @@ This document records the locally accepted state after the touch/drag investigat
 - GDI renderer.
 - `GrabFullscreen=N` and `GrabPointer=N`.
 - Existing 2-byte startup patch remains required for the verified executable build.
-- Touch scrolling remains implemented by the existing helper and Win32 `WM_VSCROLL` bridge.
+- Touch scrolling is provided by the accepted XInput2 helper and Win32 `WM_VSCROLL` bridge.
+- Main-window tap works in the accepted state.
+- Tap activation inside Win32 popup menus (`#32768`) remains a known limitation; mouse activation still works.
 
-## Additional accepted experiment: precise content-view drag filter
+## Precise content-view drag filter
 
 The closest accepted text-drag/long-press mitigation is `src/dragblock-precise.c`.
 
-Mouse tracing established that the content view which receives the relevant sequence is the MFC class:
+Mouse tracing established that the content view receiving the relevant sequence is the MFC class:
 
 ```text
 Afx:00400000:82b:00060020:01900020:00000000
 ```
 
-The observed path included:
+The observed path included `WM_LBUTTONDOWN`, `WM_MOUSEMOVE` with `MK_LBUTTON`, `WM_LBUTTONUP`, and `WM_TIMER` id 1 during the long-press path. The filter subclasses only large visible windows of that exact class, delays application-visible left-button down until release, replays a normal short click only inside the movement/time thresholds, and suppresses drag/long-hold sequences.
 
-```text
-WM_LBUTTONDOWN
-WM_MOUSEMOVE with MK_LBUTTON
-WM_LBUTTONUP
-WM_TIMER (id 1 during the long-press path)
-```
+This mitigation is **best-effort, not perfect**. It must not be described as eliminating every accidental selection, long-press popup, or touch edge case.
 
-The precise filter therefore subclasses only large visible windows of that exact class. It delays the application-visible left-button down until release, then replays a normal short click only if the pointer did not move beyond the drag threshold and the press duration stayed below the click timeout. Drag/long-hold sequences are swallowed rather than forwarded into Responsa's selection/long-press path.
+## Rejected popup-menu experiments
 
-## Important limitation
+Several approaches were tested and explicitly rejected because they either failed to activate menu items reliably or interfered with normal tap behavior:
 
-This filter is **best-effort, not perfect**. The user accepted it as the closest practical state reached, not as a complete fix. Do not describe it as eliminating every accidental selection, long-press popup, or touch-edge case.
+- synthetic Win32 `WM_LBUTTONDOWN` / `WM_LBUTTONUP` into `#32768`;
+- `xdotool` / XTest click recreation;
+- direct `WM_COMMAND` attempts after probing menu state;
+- keyboard navigation / synthetic `Home` + `Down` + `Enter` activation;
+- running an additional XInput2 listener alongside the accepted touch helper;
+- popup reset/gating and aggressive synthetic mouse-up cleanup.
+
+The final production helper therefore does **not** include popup-tap emulation.
+
+## Wine touch/gesture experiment
+
+Wine merge request 11663 (`win32u: Implement touch and gesture input support`, commit `a946158939554cbec2c90aab83808d241b7579fa`) was fetched and source-verified. A separate experimental build was started and intentionally stopped before promotion. No experimental runner replaced Soda 11.0 in production.
+
+Future testing of newer Wine touch support should always use an isolated runner and a disposable/backup prefix first.
+
+## Local storage cleanup
+
+The installed bottle contained a second ~11 GiB `drive_c/BarIlan-Installer` tree. Before removal, the running application had no open files from that tree and no configuration references were found in the checked bottle configuration/text files. The installer copy was removed after acceptance testing, reducing the production bottle from roughly 22 GiB to roughly 12 GiB. The installed application under `Program Files (x86)/ResponsaCD25` was preserved and revalidated afterward.
 
 ## Persistence model
 
 For a persistent local installation:
 
-1. Compile `src/dragblock-precise.c` as a 32-bit DLL with MinGW.
-2. Keep the injector and DLL under a stable local directory such as:
-
-   ```text
-   ~/.local/share/barilan-responsa/dragblock/
-   ```
-
-3. Start `scripts/inject-dragblock.sh` in the background from the main launcher before launching Responsa. The helper waits for `RESPONSA.exe` and injects the DLL once the process appears.
-4. Keep the touch-scroll helper and Alt+Tab helper independent.
-
-## Rejected approaches during this round
-
-The following were explicitly rejected and should not be reintroduced casually:
-
-- `evdev.grab()` / full touchscreen ownership: it disabled touch for the rest of the desktop while active.
-- global `SendInput` recreation of tap input.
-- popup-menu reset / gating around `#32768`: it could interfere with mouse interaction and menus.
-- aggressive `WM_CANCELMODE` / synthetic `WM_LBUTTONUP` cleanup across views.
-- overlay-based direct-manipulation scrolling.
+1. keep the accepted touch helper and `scrollbridge.exe` together;
+2. keep the optional drag filter injector/DLL in a stable local directory;
+3. launch the accepted helpers from the main launcher only once per Responsa process;
+4. do not start a second `xinput test-xi2 --root` listener for popup experiments;
+5. keep the Alt+Tab helper independent;
+6. preserve the verified executable hashes and Wine registry/DPI settings in the private DATA checkpoint.
 
 ## Publication guidance
 
