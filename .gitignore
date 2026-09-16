@@ -1,0 +1,14 @@
+# Never commit proprietary application/media or local Wine prefixes.
+RESPONSA.exe
+setup.exe
+*.dll
+*.msi
+*.iso
+*.img
+*.cab
+*.bin
+*.book
+Bottles/
+*.log
+__pycache__/
+*.pyc
