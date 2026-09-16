@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 - 2026-09-17
+
+- Finalized the accepted production state after the touch/popup investigation.
+- Recorded popup-menu tap (`#32768`) as a known limitation; mouse activation remains the accepted fallback.
+- Documented and rejected synthetic popup activation paths (`WM_LBUTTON*`, XTest/xdotool, direct command dispatch, keyboard activation, extra XI2 listeners).
+- Recorded the isolated Wine MR11663 touch/gesture experiment as source-verified but intentionally stopped before production promotion.
+- Documented removal of the redundant ~11 GiB `drive_c/BarIlan-Installer` copy after open-file/config-reference checks and successful post-cleanup production validation.
+- Production remains Soda 11.0 / Wine 11.0 on XWayland with DPI 192 and the accepted touch-scroll helper.
+
 ## 1.1.0 - 2026-09-17
 
 - Recorded the user-accepted stopping point for the touch/drag investigation.
